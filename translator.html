@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8" />
-  <title>中越語音翻譯工具</title>
+  <title>中越語音翻譯工具（穩定版）</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     body {
@@ -12,91 +12,44 @@
       box-sizing: border-box;
       background: #f5f5f7;
     }
-    h1 {
-      font-size: 20px;
-      margin-bottom: 8px;
-    }
-    .hint {
-      font-size: 12px;
-      color: #555;
-      margin-bottom: 12px;
-    }
+    h1 { font-size: 20px; margin-bottom: 8px; }
+    .hint { font-size: 12px; color: #555; margin-bottom: 12px; }
     textarea {
-      width: 100%;
-      min-height: 80px;
-      padding: 8px;
-      box-sizing: border-box;
-      border-radius: 8px;
-      border: 1px solid #ccc;
-      resize: vertical;
-      font-size: 14px;
+      width: 100%; min-height: 80px; padding: 8px;
+      border-radius: 8px; border: 1px solid #ccc;
+      resize: vertical; font-size: 14px;
     }
-    .label {
-      margin-top: 12px;
-      margin-bottom: 4px;
-      font-size: 13px;
-      font-weight: 600;
-    }
-    .row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin-top: 8px;
-      align-items: center;
-    }
+    .label { margin-top: 12px; margin-bottom: 4px; font-size: 13px; font-weight: 600; }
+    .row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
     button {
-      border: none;
-      border-radius: 999px;
-      padding: 8px 14px;
-      cursor: pointer;
-      font-size: 13px;
-      background: #007aff;
-      color: #fff;
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
+      border: none; border-radius: 999px; padding: 8px 14px;
+      cursor: pointer; font-size: 13px;
+      background: #007aff; color: #fff;
     }
-    button.secondary {
-      background: #e5e5ea;
-      color: #000;
-    }
-    button:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
+    button.secondary { background: #e5e5ea; color: #000; }
     select {
-      padding: 6px 10px;
-      border-radius: 999px;
-      border: 1px solid #ccc;
-      font-size: 13px;
-      background: #fff;
+      padding: 6px 10px; border-radius: 999px; border: 1px solid #ccc;
+      font-size: 13px; background: #fff;
     }
-    .status {
-      font-size: 12px;
-      color: #666;
-      margin-top: 6px;
-      min-height: 16px;
-    }
+    .status { font-size: 12px; color: #666; margin-top: 6px; min-height: 16px; }
   </style>
 </head>
+
 <body>
-  <h1>中 / 越 語音翻譯工具</h1>
-  <div class="hint">
-    🎤 點選下方「中文」或「越南文」語音按鈕說話，系統會顯示文字並翻譯。<br/>
-    若瀏覽器詢問「是否允許使用麥克風」，請選擇允許。
-  </div>
+  <h1>中 / 越 語音翻譯工具（穩定版）</h1>
+  <div class="hint">🎤 點中文或越南語按鈕開始說話，系統會顯示文字與翻譯。</div>
 
   <div class="label">原文</div>
-  <textarea id="originalText" placeholder="語音或手動輸入中文字 / 越南文"></textarea>
+  <textarea id="originalText" placeholder="請語音輸入中文或越南文"></textarea>
 
   <div class="row">
-    <button id="micZhBtn">🎤 中文輸入</button>
-    <button id="micViBtn" class="secondary">🎤 越南文輸入</button>
+    <button id="micZhBtn">🎤 中文語音</button>
+    <button id="micViBtn" class="secondary">🎤 越南語語音</button>
 
     <select id="directionSelect">
-      <option value="auto">自動：中文 ➜ 越南文 / 越南文 ➜ 中文</option>
-      <option value="zh-vi">手動：中文 ➜ 越南文</option>
-      <option value="vi-zh">手動：越南文 ➜ 中文</option>
+      <option value="auto">自動判斷語言翻譯</option>
+      <option value="zh-vi">中文 ➜ 越南文</option>
+      <option value="vi-zh">越南文 ➜ 中文</option>
     </select>
 
     <button id="translateBtn" class="secondary">開始翻譯</button>
@@ -105,126 +58,89 @@
   <div class="status" id="statusText"></div>
 
   <div class="label">翻譯結果</div>
-  <textarea id="translatedText" placeholder="翻譯後的內容會顯示在這裡" readonly></textarea>
+  <textarea id="translatedText" placeholder="翻譯後的結果會顯示在這裡" readonly></textarea>
 
   <script>
-    // 語音辨識設定
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const hasSpeechRecognition = !!SpeechRecognition;
+    let recognition = SpeechRecognition ? new SpeechRecognition() : null;
 
-    const micZhBtn = document.getElementById('micZhBtn');
-    const micViBtn = document.getElementById('micViBtn');
-    const translateBtn = document.getElementById('translateBtn');
-    const originalText = document.getElementById('originalText');
-    const translatedText = document.getElementById('translatedText');
-    const statusText = document.getElementById('statusText');
-    const directionSelect = document.getElementById('directionSelect');
+    const originalText = document.getElementById("originalText");
+    const translatedText = document.getElementById("translatedText");
+    const statusText = document.getElementById("statusText");
+    const directionSelect = document.getElementById("directionSelect");
 
-    let recognition = null;
-    let lastInputLang = 'zh'; // 'zh' 或 'vi'
+    let lastInputLang = "zh";
 
-    if (!hasSpeechRecognition) {
-      statusText.textContent = '⚠️ 此瀏覽器不支援語音辨識功能，請改用 Chrome 或 Edge。';
-      micZhBtn.disabled = true;
-      micViBtn.disabled = true;
-    } else {
-      recognition = new SpeechRecognition();
+    if (recognition) {
       recognition.interimResults = false;
       recognition.maxAlternatives = 1;
 
-      recognition.onstart = () => {
-        statusText.textContent = '🎧 正在聆聽中，請開始說話…';
-      };
-      recognition.onerror = (event) => {
-        statusText.textContent = '⚠️ 語音辨識錯誤：' + event.error;
-      };
-      recognition.onend = () => {
-        statusText.textContent = '✅ 語音辨識結束。';
-      };
+      recognition.onstart = () => statusText.textContent = "🎧 正在聆聽...";
+      recognition.onend = () => statusText.textContent = "語音辨識結束。";
+      recognition.onerror = (e) => statusText.textContent = "⚠️ 語音辨識錯誤：" + e.error;
       recognition.onresult = (event) => {
-        const transcript = event.results[0][0].transcript.trim();
-        originalText.value = transcript;
-        statusText.textContent = '✅ 已取得語音內容。';
-        // 語音輸入完成後自動翻譯
+        const text = event.results[0][0].transcript;
+        originalText.value = text;
         translate();
       };
+    } else {
+      statusText.textContent = "⚠️ 此瀏覽器不支援語音功能（建議使用 Chrome）";
     }
 
-    function startRecognition(langCode, inputLangTag) {
+    document.getElementById("micZhBtn").onclick = () => {
       if (!recognition) return;
-      lastInputLang = inputLangTag; // 'zh' 或 'vi'
-      recognition.lang = langCode;
-      try {
-        recognition.start();
-      } catch (e) {
-        console.error(e);
-      }
-    }
+      lastInputLang = "zh";
+      recognition.lang = "zh-TW";
+      recognition.start();
+    };
 
-    micZhBtn.addEventListener('click', () => {
-      startRecognition('zh-TW', 'zh');
-    });
+    document.getElementById("micViBtn").onclick = () => {
+      if (!recognition) return;
+      lastInputLang = "vi";
+      recognition.lang = "vi-VN";
+      recognition.start();
+    };
 
-    micViBtn.addEventListener('click', () => {
-      startRecognition('vi-VN', 'vi');
-    });
-
-    translateBtn.addEventListener('click', translate);
+    document.getElementById("translateBtn").onclick = translate;
 
     async function translate() {
       const text = originalText.value.trim();
       if (!text) {
-        statusText.textContent = '請先輸入或說出要翻譯的文字。';
+        statusText.textContent = "請先輸入或語音輸入文字。";
         return;
       }
 
-      let source = 'auto';
-      let target = 'vi'; // default
+      let sourceLang = "auto";
+      let targetLang = "vi";
 
-      const dir = directionSelect.value;
-
-      if (dir === 'zh-vi') {
-        source = 'zh';
-        target = 'vi';
-      } else if (dir === 'vi-zh') {
-        source = 'vi';
-        target = 'zh';
-      } else {
-        // auto 模式：依據最後一次語音輸入語言推斷目標
-        if (lastInputLang === 'zh') {
-          source = 'zh';
-          target = 'vi';
-        } else {
-          source = 'vi';
-          target = 'zh';
-        }
+      const mode = directionSelect.value;
+      if (mode === "zh-vi") { sourceLang = "zh"; targetLang = "vi"; }
+      else if (mode === "vi-zh") { sourceLang = "vi"; targetLang = "zh"; }
+      else {
+        targetLang = lastInputLang === "zh" ? "vi" : "zh";
+        sourceLang = lastInputLang;
       }
 
-      statusText.textContent = '⏳ 翻譯中…';
+      statusText.textContent = "⏳ 翻譯中…";
 
       try {
-        // 使用 LibreTranslate 公開服務（示範用）
-        const res = await fetch('https://libretranslate.com/translate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+        const res = await fetch("https://translate.astian.org/translate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             q: text,
-            source: source === 'auto' ? 'auto' : source,
-            target: target,
-            format: 'text'
+            source: sourceLang,
+            target: targetLang,
+            format: "text"
           })
         });
 
-        if (!res.ok) {
-          throw new Error('HTTP ' + res.status);
-        }
-
         const data = await res.json();
-        translatedText.value = data.translatedText || '(無法取得翻譯結果)';
-        statusText.textContent = '✅ 翻譯完成。';
+        translatedText.value = data.translatedText || "(無翻譯結果)";
+        statusText.textContent = "✅ 翻譯完成！";
+
       } catch (err) {
-        console.error(err);
-        statusText.textContent = '⚠️ 翻譯發生錯誤，可能是服務暫時無法使用或被阻擋。';
+        statusText.textContent = "⚠️ 翻譯服務暫時無法使用，請稍後再試。";
       }
     }
   </script>
